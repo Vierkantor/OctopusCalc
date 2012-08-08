@@ -1,5 +1,8 @@
 import sys;
 
+from Value import *;
+from Functions import *;
+
 # the first step in evaluating a command
 def evaluate(command):
 	try:
@@ -22,12 +25,13 @@ while 1:
 	# try to evaluate the command
 	try:
 		result = evaluate(command);
-	except (SyntaxError, NameError):
-		print ("Error: invalid command:", command);
-	except ValueError:
-		print ("Error: invalid number:", command);
+	#except (SyntaxError, NameError):
+	#	print ("Error: invalid command:", command);
+	#except ValueError:
+	#	print ("Error: invalid number:", command);
 	except:
-		print ("Error: unknown error of type:", sys.exc_info()[0]);
+		raise;
+	#	print ("Error: unknown error of type:", sys.exc_info()[0]);
 	else:
 		print (result);
 

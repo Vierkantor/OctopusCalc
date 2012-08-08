@@ -5,8 +5,8 @@ The basic OctopusCalc can handle a number of value types, the simplest being Not
 > null -> {Nothing}
 
 There is also the Boolean, either being true or false.
-> true  -> {Boolean value: true}
-> false -> {Boolean value: false}
+> true  -> {Boolean value: True}
+> false -> {Boolean value: False}
 
 Numbers come in a few different flavours, the most basic being the Integer.
 > 4 -> {Integer value: 4}
