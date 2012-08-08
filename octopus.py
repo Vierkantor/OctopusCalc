@@ -1,5 +1,8 @@
 import sys;
 
+from Value import *;
+from Functions import *;
+
 # the first step in evaluating a command
 def evaluate(command):
 	try:
