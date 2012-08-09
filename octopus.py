@@ -72,6 +72,9 @@ class TokenIterator:
 		if self.string[:7] == "Decimal":
 			self.string = self.string[7:];
 			return Token("type", Decimal);
+		if self.string[:4] == "Text":
+			self.string = self.string[4:];
+			return Token("type", Text);
 
 		# Boolean: either 'false' or 'true'
 		if re.match("^(false)", self.string, re.I) != None:

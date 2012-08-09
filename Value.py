@@ -1,4 +1,4 @@
-import math;
+import math, re;
 
 # generic value container
 class Value:
@@ -6,6 +6,9 @@ class Value:
 		pass
 
 	def __str__(self):
+		return "Anything";
+
+	def __repr__(self):
 		return "{GenericValue}";
 
 	def Convert(self, otherValue):
@@ -21,8 +24,11 @@ class Nothing (Value):
 	def __init__(self):
 		Value.__init__(self);
 
-	def __str__(self):
+	def __repr__(self):
 		return "{Nothing}";
+
+	def __str__(self):
+		return "Nothing";
 
 # boolean - either true or false
 class Boolean (Value):
@@ -48,11 +54,16 @@ class Boolean (Value):
 			return self;
 		elif otherValue == Integer:
 			return Integer(self.value);
+		elif otherValue == Text:
+			return Text(str(self.value));
 		else:
 			raise ValueError("Cannot convert to that value.");
 
+	def __repr__(self):
+		return "{Boolean value: " + repr(self.value) + "}";
+
 	def __str__(self):
-		return "{Boolean value: " + str(self.value) + "}";
+		return str(self.value);
 
 # integer - any whole number
 class Integer (Value):
@@ -79,11 +90,16 @@ class Integer (Value):
 			return Fraction(self.value, 1);
 		elif otherValue == Decimal:
 			return Decimal(self.value * 10 ** 100, -100);
+		elif otherValue == Text:
+			return Text(str(self));
 		else:
 			raise ValueError("Cannot convert to that value.");
 
+	def __repr__(self):
+		return "{Integer value: " + repr(self.value) + "}";
+
 	def __str__(self):
-		return "{Integer value: " + str(self.value) + "}";
+		return str(self.value);
 
 # fraction - any two integers divided
 class Fraction (Value):
@@ -118,6 +134,10 @@ class Fraction (Value):
 		elif otherValue == Decimal:
 			# any more than 100 decimals is not needed, the universe is only 10^61 planck lenghths big
 			return Decimal(int(int(self.top.value) * 10 ** 100) // int(self.bottom.value), Integer(-100));
+		
+		elif otherValue == Text:
+			return Text(str(self.Simplify()));
+
 		else:
 			raise ValueError("Cannot convert to that value.");
 
@@ -133,8 +153,11 @@ class Fraction (Value):
 			return Fraction(self.top.value // gcd.value, self.bottom.value // gcd.value);
 		return self;
 
+	def __repr__(self):
+		return "{Fraction top: " + repr(self.top) + " bottom: " + repr(self.bottom) + "}";
+
 	def __str__(self):
-		return "{Fraction top: " + str(self.top) + " bottom: " + str(self.bottom) + "}";
+		return str(self.top) + "/" + str(self.bottom);
 
 # decimal: a floating point / scientific notation number
 class Decimal (Value):
@@ -175,10 +198,61 @@ class Decimal (Value):
 			else:
 				# no chance of truncation, no need to do more simplification later on
 				return Fraction(self.Convert(Integer), Integer(1));
+		elif otherValue == Text:
+			return Text(str(self));
+		else:
+			raise ValueError("Cannot convert to that value.");
+
+	def __repr__(self):
+		return "{Decimal value: " + repr(self.value) + " power: " + repr(self.power) + "}";
+
+	def __str__(self):
+		return str(self.value) + "e" + str(self.power);
+
+# primitive string class
+class Text (Value):
+	def __init__(self, value):
+		self.value = value;
+
+	def Convert(self, otherValue):
+		if not issubclass(otherValue, Value):
+			raise ValueError("Cannot convert to non-value.");
+		if otherValue == Text:
+			return self;
+		elif otherValue == Integer:
+			return Integer(int(self.value));
+		elif otherValue == Boolean:
+			return Boolean(self.value.lower() != "false"); # returns Boolean(True) when the Text is not 'false'
+		elif otherValue == Fraction:
+			match = re.match("^\s*(\d+)\/(\d+)\s*", self.value);
+			if match != None:
+				return Fraction(match.group(1), match.group(2));
+			raise ValueError("Text does not contain a Fraction.");
+		elif otherValue == Decimal:
+			# Decimal: either a'.'b , a'e'c or a'.'b'e'c where a, b and c are a series of digits
+			match = re.match("^\s*(\d+)\.(\d+)e(\d+)\s*", self.value, re.I);
+			if match != None:
+				value = int(match.group(1) + match.group(2));
+				power = int(match.group(3)) - len(match.group(2));
+				return Decimal(value, power);
+			match = re.match("^\s*(\d+)e(\d+)\s*", self.value, re.I);
+			if match != None:
+				value = int(match.group(1));
+				power = int(match.group(2));
+				return Decimal(value, power);
+			match = re.match("^\s*(\d+)\.(\d+)\s*", self.value);
+			if match != None:
+				value = int(match.group(1) + match.group(2));
+				power = -len(match.group(2));
+				return Decimal(value, power);
+			raise ValueError("Text does not contain a Decimal.");
 		else:
 			raise ValueError("Cannot convert to that value.");
 
 	def __str__(self):
-		return "{Decimal value: " + str(self.value) + " power: " + str(self.power) + "}";
+		return "'" + self.value + "'";
+
+	def __repr__(self):
+		return "{Text value:'" + self.value + "'}"
 
 from Functions import *
