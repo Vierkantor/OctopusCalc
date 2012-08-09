@@ -3,6 +3,23 @@ import sys, re;
 from Value import *;
 from Functions import *;
 
+## {{{ http://code.activestate.com/recipes/52549/ (r3)
+class curry:
+    def __init__(self, fun, *args, **kwargs):
+        self.fun = fun
+        self.pending = args[:]
+        self.kwargs = kwargs.copy()
+
+    def __call__(self, *args, **kwargs):
+        if kwargs and self.kwargs:
+            kw = self.kwargs.copy()
+            kw.update(kwargs)
+        else:
+            kw = kwargs or self.kwargs
+
+        return self.fun(*(self.pending + args), **kw)
+## end of http://code.activestate.com/recipes/52549/ }}}
+
 class Token:
 	def __init__(self, type, data):
 		self.type = type;
@@ -92,13 +109,16 @@ class TokenIterator:
 			self.string = self.string[match.end(1):];
 			return Token("value", Integer(match.group(1)));
 
-		# parentheses are important!
+		# literal characters
 		if self.string[:1] == '(':
 			self.string = self.string[1:];
 			return Token("leftparen", None);
 		if self.string[:1] == ')':
 			self.string = self.string[1:];
 			return Token("rightparen", None);
+		if self.string[:1] == ',':
+			self.string = self.string[1:];
+			return Token("comma", None);
 
 		# infix functions
 		if self.string[:2] == '=>':
@@ -116,6 +136,9 @@ class TokenIterator:
 		if self.string[:1] == '/':
 			self.string = self.string[1:];
 			return Token("infix", fun_div);
+		if self.string[:1] == '%':
+			self.string = self.string[1:];
+			return Token("infix", fun_mod);
 		if self.string[:1] == '^':
 			self.string = self.string[1:];
 			return Token("infix", fun_pow);
@@ -132,12 +155,33 @@ class TokenIterator:
 			self.string = self.string[1:];
 			return Token("infix", fun_greater);
 
+		# predefined functions
+		if self.string[:3] == 'gcd':
+			self.string = self.string[3:];
+			return Token("function", fun_gcd);
+
 		raise SyntaxError("Unknown token, starting at: '" + self.string + "'");
 
 	def next(self):
 		if len(self.buffer) > 0:
 			return self.buffer.pop();
 		return self.tokenFromString();
+
+def parseFunction(tokenSrc, func):
+	arg = parseExpression(tokenSrc);
+	if arg == None:
+		return func();
+	else:
+		try:
+			next = tokenSrc.next();
+		except StopIteration:
+			return func(arg);
+
+		if next.type == "comma":
+			return parseFunction(tokenSrc, curry(func, arg));
+		else:
+			tokenSrc.put(next);
+			return func(arg);
 
 def parseInfixPart(tokenSrc, val):
 	try:
@@ -152,11 +196,14 @@ def parseInfixPart(tokenSrc, val):
 		tokenSrc.put(next);
 		return val;
 
-def parseExpression(tokenSrc):
+def parseExpression(tokenSrc, canBeNull = False):
 	try:
 		token = tokenSrc.next();
 	except StopIteration:
 		raise SyntaxError("Expected expression, received end of line.");
+
+	if token.type == "function":
+		return parseFunction(tokenSrc, token.data);
 
 	if token.type == "value" or token.type == "type":
 		return parseInfixPart(tokenSrc, token.data);
@@ -170,7 +217,10 @@ def parseExpression(tokenSrc):
 			# check if it's not part of another (infix) expression
 			return parseInfixPart(tokenSrc, exp);
 	
-	raise SyntaxError("Expected expression, received: " + str(token));
+	if not canBeNull:
+		raise SyntaxError("Expected expression, received: " + str(token));
+	else:
+		return None;
 
 # the first step in evaluating a command, sets up things so that they can get parsed
 def evaluate(command):
