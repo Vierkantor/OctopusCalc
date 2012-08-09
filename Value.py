@@ -253,6 +253,26 @@ class Text (Value):
 		return "'" + self.value + "'";
 
 	def __repr__(self):
-		return "{Text value:'" + self.value + "'}"
+		return "{Text value: '" + self.value + "'}"
+
+class Object (Value):
+	def __init__(self, name):
+		self.name = Text(name);
+		self.values = {};
+
+	def setAttr(self, attr, value):
+		attr.Convert(Text);
+		self.values[attr.value] = value;
+		return self;
+
+	def getAttr(self, attr):
+		attr.Convert(Text);
+		return self.values[attr.value];
+
+	def __str__(self):
+		return "[" + str(self.name) + "]";
+
+	def __repr__(self):
+		return "{Object name: " + repr(self.name) + " ...}" 
 
 from Functions import *
