@@ -2,6 +2,12 @@ import math
 
 from Value import Value, Nothing, Boolean, Integer, Fraction, Decimal
 
+def fun_convert(a, b):
+	if issubclass(type(a), Value) and issubclass(b, Value):
+		return a.Convert(b);
+	else:
+		raise ValueError("Cannot convert that way.");
+
 # since apparently Python doesn't feel the need to support overloading, we'll have to redefine most of the basic operations
 def fun_and (a, b):
 	a = a.Convert(Boolean);

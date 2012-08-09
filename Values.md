@@ -52,5 +52,6 @@ Objects' properties are accessed in this way:
 You can also do this with other values than objects:
 > [4.5 sigfigs] -> {Integer: 2}
 
-Conversion is a special type of function:
+Conversion is a special type of function, taking Types or Units instead of Values
+> 1/2 => Decimal -> {Decimal value: {Integer value: 5} power: {Integer value: -1}}
 > 3000 m => km -> {Quantity value: {Integer value: 3} unit: {Unit name: km}}
