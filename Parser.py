@@ -210,7 +210,10 @@ def parseExpression(tokenSrc, canBeNull = False):
 
 	if token.type == "leftparen":
 		exp = parseExpression(tokenSrc);
-		next = tokenSrc.next();
+		try:
+			next = tokenSrc.next();
+		except StopIteration:
+			raise SyntaxError("Expected right parenthesis, reached end of line.";
 		if next.type != "rightparen":
 			raise SyntaxError("Expected right parenthesis, received " + str(next));
 		else:
