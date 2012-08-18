@@ -213,7 +213,7 @@ def parseExpression(tokenSrc, canBeNull = False):
 		try:
 			next = tokenSrc.next();
 		except StopIteration:
-			raise SyntaxError("Expected right parenthesis, reached end of line.";
+			raise SyntaxError("Expected right parenthesis, reached end of line.");
 		if next.type != "rightparen":
 			raise SyntaxError("Expected right parenthesis, received " + str(next));
 		else:
