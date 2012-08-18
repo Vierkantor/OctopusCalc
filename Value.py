@@ -275,4 +275,65 @@ class Object (Value):
 	def __repr__(self):
 		return "{Object name: " + repr(self.name) + " ...}" 
 
+class Unit (Value):
+	def __init__(self, name, base = Nothing, convToBase = Nothing, convFromBase = Nothing):
+		self.name = Text(name);
+		if base == Nothing:
+			self.base = self;
+			self.convToBase = lambda val: val;
+			self.convFromBase = lambda val: val;
+		elif type(base) != Unit:
+			raise ValueError("Standard unit must be a Unit.");
+		elif (not hasattr(convToBase, '__call__')) or (not hasattr(convFromBase, '__call__')):
+			raise ValueError("Invalid conversion function.");
+		else:
+			self.base = base;
+			self.convToBase = convToBase;
+			self.convFromBase = convFromBase;
+
+	def Convert(self, otherValue):
+		if not issubclass(otherValue, Value):
+			raise ValueError("Cannot convert to non-value.");
+		if otherValue == Unit:
+			return self;
+		elif otherValue == Text:
+			return Text(self.name);
+
+	def __str__(self):
+		return str(self.name);
+
+	def __repr__(self):
+		return "{Unit name: " + repr(self.name) + "}" 
+
+class Quantity (Value):
+	def __init__(self, value, unit):
+		self.value = value;
+		if type(unit) == Unit:
+			self.unit = unit;
+		else:
+			self.unit = Unit(unit);
+
+	def Convert(self, otherValue):
+		if not issubclass(otherValue, Value):
+			raise ValueError("Cannot convert to non-value.");
+		if otherValue == Quantity:
+			return self;
+		elif otherValue == Text:
+			return Text(str(self.value) + " " + self.unit.name.value);
+		else:
+			return self.ToUnit(self.unit.base).value.Convert(otherValue);
+
+	def ToUnit(self, unit):
+		if type(unit) != Unit:
+			raise ValueError("Cannot convert to non-unit.");
+		if unit.base != self.unit.base:
+			raise ValueError("Units are incompatible.");
+		return Quantity(unit.convFromBase(self.unit.convToBase(self.value)), unit);
+
+	def __str__(self):
+		return str(str(self.value) + " " + self.unit.name.value);
+
+	def __repr__(self):
+		return "{Quantity value: " + repr(self.value) + " unit: " + repr(self.unit) + "}" 
+
 from Functions import *

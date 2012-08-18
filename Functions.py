@@ -1,8 +1,10 @@
 import math
 
-from Value import Value, Nothing, Boolean, Integer, Fraction, Decimal
+from Value import Value, Nothing, Boolean, Integer, Fraction, Decimal, Text, Object, Unit, Quantity
 
 def fun_convert(a, b):
+	if type(a) == Quantity and type(b) == Unit:
+		return a.ToUnit(b);
 	if issubclass(type(a), Value) and issubclass(b, Value):
 		return a.Convert(b);
 	else:
@@ -109,8 +111,9 @@ def fun_div (a, b):
 	if type(a) == Decimal or type(b) == Decimal:
 		a = a.Convert(Decimal);
 		b = b.Convert(Decimal);
-		c = fun_div(a.value, b.value).Convert(Decimal);	# preserves precision
-		c.power = fun_add(c.power, fun_sub(a.power, b.power));
+		truncB = b.Truncate(a.sigFigs() * 2); # the truncated value makes sure that b.value isn't so big that a.value / b.value becomes 0
+		c = fun_div(a.value, truncB.value).Convert(Decimal);	# preserves precision
+		c.power = fun_add(c.power, fun_sub(a.power, truncB.power));
 		return c.Truncate(min(a.sigFigs(), b.sigFigs()));
 	elif type(a) == Fraction or type(b) == Fraction:
 		a = a.Convert(Fraction);
