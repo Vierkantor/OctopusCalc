@@ -75,6 +75,9 @@ class TokenIterator:
 		if self.string[:4] == "Text":
 			self.string = self.string[4:];
 			return Token("type", Text);
+		if self.string[:6] == "Object":
+			self.string = self.string[6:];
+			return Token("type", Object);
 
 		# Boolean: either 'false' or 'true'
 		if re.match("^(false)", self.string, re.I) != None:
