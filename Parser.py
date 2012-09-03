@@ -24,6 +24,9 @@ class Token:
 	def __init__(self, type, data):
 		self.type = type;
 		self.data = data;
+		
+	def __repr__(self):
+		return self.__str__();
 
 	def __str__(self):
 		return "{Token type: " + str(self.type) + " data: " + str(self.data) + "}"
@@ -123,37 +126,43 @@ class TokenIterator:
 		# infix functions
 		if self.string[:2] == '=>':
 			self.string = self.string[2:];
-			return Token("infix", fun_convert);
-		if self.string[:1] == '+':
-			self.string = self.string[1:];
-			return Token("infix", fun_add);
-		if self.string[:1] == '-':
-			self.string = self.string[1:];
-			return Token("infix", fun_sub);
-		if self.string[:1] == '*':
-			self.string = self.string[1:];
-			return Token("infix", fun_mult);
-		if self.string[:1] == '/':
-			self.string = self.string[1:];
-			return Token("infix", fun_div);
-		if self.string[:1] == '%':
-			self.string = self.string[1:];
-			return Token("infix", fun_mod);
+			return Token("infix", (fun_convert, 6));
 		if self.string[:1] == '^':
 			self.string = self.string[1:];
-			return Token("infix", fun_pow);
+			return Token("infix", (fun_pow, 5));
+		if self.string[:1] == '*':
+			self.string = self.string[1:];
+			return Token("infix", (fun_mult, 4));
+		if self.string[:1] == '/':
+			self.string = self.string[1:];
+			return Token("infix", (fun_div, 4));
+		if self.string[:1] == '%':
+			self.string = self.string[1:];
+			return Token("infix", (fun_mod, 4));
+		if self.string[:1] == '+':
+			self.string = self.string[1:];
+			return Token("infix", (fun_add, 3));
+		if self.string[:1] == '-':
+			self.string = self.string[1:];
+			return Token("infix", (fun_sub, 3));
 		if self.string[:1] == '&':
 			self.string = self.string[1:];
-			return Token("infix", fun_and);
+			return Token("infix", (fun_and, 2));
 		if self.string[:1] == '|':
 			self.string = self.string[1:];
-			return Token("infix", fun_or);
+			return Token("infix", (fun_or, 2));
 		if self.string[:1] == '=':
 			self.string = self.string[1:];
-			return Token("infix", fun_equals);
+			return Token("infix", (fun_equals, 1));
 		if self.string[:1] == '>':
 			self.string = self.string[1:];
-			return Token("infix", fun_greater);
+			return Token("infix", (fun_greater, 1));
+		if self.string[:1] == 'and':
+			self.string = self.string[1:];
+			return Token("infix", (fun_and, 0));
+		if self.string[:1] == 'or':
+			self.string = self.string[1:];
+			return Token("infix", (fun_or, 0));
 
 		# predefined functions
 		if self.string[:3] == 'gcd':
@@ -167,60 +176,94 @@ class TokenIterator:
 			return self.buffer.pop();
 		return self.tokenFromString();
 
-def parseFunction(tokenSrc, func):
-	arg = parseExpression(tokenSrc);
-	if arg == None:
-		return func();
-	else:
-		try:
-			next = tokenSrc.next();
-		except StopIteration:
-			return func(arg);
+def parseFunction(tokenList, func):
+	# go up to first comma (since other functions should have been stripped out by now)
+	for location, value in enumerate(tokenList):
+		if type(value) == Token and value.type == "comma":
+			arg = parseExpressionList(tokenList[:location]);
+			return parseFunction(tokenList[location + 1:], curry(func, arg));
+	
+	# if there are no commas, the rest of the expression must be our arguments
+	arg = parseExpressionList(tokenList);
+	return func(arg);
+			
+def parseExpressionList(tokenList):
+	#for value in tokenList:
+		#print(str(value));
 
-		if next.type == "comma":
-			return parseFunction(tokenSrc, curry(func, arg));
+	# if the list is only one value, return that
+	if len(tokenList) <= 0:
+		return None;
+	if len(tokenList) == 1:
+		if issubclass(type(tokenList[0]), Value):
+			return tokenList[0];
 		else:
-			tokenSrc.put(next);
-			return func(arg);
+			if type(tokenList[0]) != Token or (tokenList[0].type != "value" and tokenList[0].type != "type"):
+				raise SyntaxError("Unexpected " + str(tokenList[0]));
+			else:
+				return tokenList[0].data;
+	
+	# reduce parentheses to their contents' value
+	parenLevel = 0
+	for location, value in enumerate(tokenList):
+		if type(value) == Token and value.type == "leftparen":
+			for endPos, token in enumerate(tokenList[location+1:]):
+				if type(token) == Token and token.type == "leftparen":
+					parenLevel = parenLevel + 1;
+				if type(token) == Token and token.type == "rightparen":
+					if parenLevel > 0:
+						parenLevel = parenLevel - 1;
+					else:
+						value = parseExpressionList(tokenList[location + 1 : location + endPos + 1]);
+						# replace the value into tokenList
+						tokenList[location : location + endPos + 2] = [value];
+						# parse the resulting list
+						return parseExpressionList(tokenList);
 
-def parseInfixPart(tokenSrc, val):
-	try:
-		next = tokenSrc.next();
-	except StopIteration:
-		return val;
-
-	if next.type == "infix":
-		val2 = parseExpression(tokenSrc);
-		return next.data(val, val2);
-	else:
-		tokenSrc.put(next);
-		return val;
+			raise SyntaxError("Unmatched parentheses, you are missing a ')' somewhere.");
+	
+	# reduce functions to their values
+	for location, value in enumerate(tokenList):
+		if type(value) == Token and value.type == "function":
+			# since functions go up to the end of the expression, we should've reached the end,
+			# therefore we can safely ignore everything after this function
+			value = parseFunction(tokenList[location + 1:], value.data);
+			# replace into tokenList
+			tokenList[location:] = [value];
+			return parseExpressionList(tokenList);
+			
+	# reduce infix operators to their values
+	maxPrecedence = -1;
+	opPos = 0;
+	opFunc = (lambda x, y: x);
+	for location, value in enumerate(tokenList):
+		if type(value) == Token and value.type == "infix":
+			if value.data[1] > maxPrecedence:
+				maxPrecedence = value.data[1];
+				opPos = location;
+				opFunc = value.data[0];
+	if maxPrecedence > -1:
+		left = parseExpressionList([tokenList[opPos - 1]]);
+		right = parseExpressionList([tokenList[opPos + 1]])
+		value = opFunc(left, right);
+		# replace the value into tokenList
+		tokenList[opPos - 1 : opPos + 2] = [value];
+		return parseExpressionList(tokenList);
+			
+	raise SyntaxError("No idea what to do with these values: " + str(tokenList));
 
 def parseExpression(tokenSrc, canBeNull = False):
-	try:
-		token = tokenSrc.next();
-	except StopIteration:
-		raise SyntaxError("Expected expression, received end of line.");
-
-	if token.type == "function":
-		return parseFunction(tokenSrc, token.data);
-
-	if token.type == "value" or token.type == "type":
-		return parseInfixPart(tokenSrc, token.data);
-
-	if token.type == "leftparen":
-		exp = parseExpression(tokenSrc);
-		try:
-			next = tokenSrc.next();
-		except StopIteration:
-			raise SyntaxError("Expected right parenthesis, reached end of line.");
-		if next.type != "rightparen":
-			raise SyntaxError("Expected right parenthesis, received " + str(next));
-		else:
-			# check if it's not part of another (infix) expression
-			return parseInfixPart(tokenSrc, exp);
+	valueList = [];
 	
-	if not canBeNull:
-		raise SyntaxError("Expected expression, received: " + str(token));
-	else:
+	# when multiple statements are in, parse up to the end of this statement:
+	while not tokenSrc.empty():
+		try:
+			valueList.append(tokenSrc.next());
+		except StopIteration:
+			raise ValueError("Tokens expected but none received.");
+			
+	if len(valueList) <= 0:
 		return None;
+	else:
+		return parseExpressionList(valueList);
+	
