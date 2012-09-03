@@ -75,43 +75,19 @@ class TokenIterator:
 		if self.string[:7] == "Decimal":
 			self.string = self.string[7:];
 			return Token("type", Decimal);
-
-		# Boolean: either 'false' or 'true'
-		if re.match("^(false)", self.string, re.I) != None:
-			self.string = self.string[5:];
-			return Token("value", Boolean(False));
-		if re.match("^(true)", self.string, re.I) != None:
+		if self.string[:4] == "Text":
 			self.string = self.string[4:];
-			return Token("value", Boolean(True));
-
-		# Decimal: either a'.'b , a'e'c or a'.'b'e'c where a, b and c are a series of digits
-		match = re.match("^(\d+)\.(\d+)e(\d+)", self.string, re.I);
-		if match != None:
-			self.string = self.string[match.end(3):];
-			value = int(match.group(1) + match.group(2));
-			power = int(match.group(3)) - len(match.group(2));
-			return Token("value", Decimal(value, power));
-		match = re.match("^(\d+)e(\d+)", self.string, re.I);
-		if match != None:
-			self.string = self.string[match.end(2):];
-			value = int(match.group(1));
-			power = int(match.group(2));
-			return Token("value", Decimal(value, power));
-		match = re.match("^(\d+)\.(\d+)", self.string);
-		if match != None:
-			self.string = self.string[match.end(2):];
-			value = int(match.group(1) + match.group(2));
-			power = -len(match.group(2));
-			return Token("value", Decimal(value, power));
-
-		# Fractions are handled as an expression
-
-		# Integer: a series of digits
-		match = re.match("^(\d+)", self.string);
-		if match != None:
-			self.string = self.string[match.end(1):];
-			return Token("value", Integer(match.group(1)));
-
+			return Token("type", Text);
+		if self.string[:6] == "Object":
+			self.string = self.string[6:];
+			return Token("type", Object);
+		if self.string[:4] == "Unit":
+			self.string = self.string[4:];
+			return Token("type", Unit);
+		if self.string[:8] == "Quantity":
+			self.string = self.string[8:];
+			return Token("type", Quantity);
+			
 		# literal characters
 		if self.string[:1] == '(':
 			self.string = self.string[1:];
@@ -122,7 +98,13 @@ class TokenIterator:
 		if self.string[:1] == ',':
 			self.string = self.string[1:];
 			return Token("comma", None);
-
+		if self.string[:1] == '[':
+			self.string = self.string[1:];
+			return Token("leftbracket", None);
+		if self.string[:1] == ']':
+			self.string = self.string[1:];
+			return Token("rightbracket", None);
+		
 		# infix functions
 		if self.string[:2] == '=>':
 			self.string = self.string[2:];
@@ -168,7 +150,67 @@ class TokenIterator:
 		if self.string[:3] == 'gcd':
 			self.string = self.string[3:];
 			return Token("function", fun_gcd);
+				
+		# Text
+		match = re.match("^\"(.*?)\"(.*)$", self.string);
+		if match != None:
+			self.string = match.group(2);
+			return Text(match.group(1));
+		
+		match = re.match("^'(.*?)'(.*)$", self.string);
+		if match != None:
+			self.string = match.group(2);
+			return Text(match.group(1));
 
+		# Boolean: either 'false' or 'true'
+		if re.match("^(false)", self.string, re.I) != None:
+			self.string = self.string[5:];
+			return Token("value", Boolean(False));
+		if re.match("^(true)", self.string, re.I) != None:
+			self.string = self.string[4:];
+			return Token("value", Boolean(True));
+
+		# Decimal: either a'.'b , a'e'c or a'.'b'e'c where a, b and c are a series of digits
+		match = re.match("^(\d+)\.(\d+)e(\d+)", self.string, re.I);
+		if match != None:
+			self.string = self.string[match.end(3):];
+			value = int(match.group(1) + match.group(2));
+			power = int(match.group(3)) - len(match.group(2));
+			return Token("value", Decimal(value, power));
+		match = re.match("^(\d+)e(\d+)", self.string, re.I);
+		if match != None:
+			self.string = self.string[match.end(2):];
+			value = int(match.group(1));
+			power = int(match.group(2));
+			return Token("value", Decimal(value, power));
+		match = re.match("^(\d+)\.(\d+)", self.string);
+		if match != None:
+			self.string = self.string[match.end(2):];
+			value = int(match.group(1) + match.group(2));
+			power = -len(match.group(2));
+			return Token("value", Decimal(value, power));
+
+		# Fractions are handled as an expression
+
+		# Integer: a series of digits
+		match = re.match("^(\d+)", self.string);
+		if match != None:
+			self.string = self.string[match.end(1):];
+			return Token("value", Integer(match.group(1)));
+		
+		# try to make every alpha-numeric character into an Object or Unit
+		match = re.match("^(\w+)", self.string);
+		if match != None:
+			self.string = self.string[match.end(1):];
+			
+			value = match.group(1);
+			if value in objects:
+				return Token("value", objects[value]);
+			if value in units:
+				return Token("value", units[value]);
+			
+			return Token("name", value);
+		
 		raise SyntaxError("Unknown token, starting at: '" + self.string + "'");
 
 	def next(self):
@@ -186,6 +228,15 @@ def parseFunction(tokenList, func):
 	# if there are no commas, the rest of the expression must be our arguments
 	arg = parseExpressionList(tokenList);
 	return func(arg);
+	
+def getValue(token):
+	if issubclass(type(token), Value):
+		return token;
+	else:
+		if type(token) != Token or (token.type != "value" and token.type != "type"):
+			raise SyntaxError("Unexpected " + str(token));
+		else:
+			return token.data;
 			
 def parseExpressionList(tokenList):
 	#for value in tokenList:
@@ -195,13 +246,7 @@ def parseExpressionList(tokenList):
 	if len(tokenList) <= 0:
 		return None;
 	if len(tokenList) == 1:
-		if issubclass(type(tokenList[0]), Value):
-			return tokenList[0];
-		else:
-			if type(tokenList[0]) != Token or (tokenList[0].type != "value" and tokenList[0].type != "type"):
-				raise SyntaxError("Unexpected " + str(tokenList[0]));
-			else:
-				return tokenList[0].data;
+		return getValue(tokenList[0]);
 	
 	# reduce parentheses to their contents' value
 	parenLevel = 0
@@ -222,6 +267,24 @@ def parseExpressionList(tokenList):
 
 			raise SyntaxError("Unmatched parentheses, you are missing a ')' somewhere.");
 	
+	# reduce quantities to their values
+	for location, value in enumerate(tokenList):
+		if location > 0:
+			if type(value) == Unit:
+				try:
+					value = Quantity(getValue(tokenList[location - 1]), value);
+					tokenList[location - 1:location + 1] = [value];
+					return parseExpressionList(tokenList);
+				except SyntaxError:
+					pass;
+			elif type(value) == Token and value.type == "value" and type(value.data) == Unit:
+				try:
+					value = Quantity(getValue(tokenList[location - 1]), value.data);
+					tokenList[location - 1:location + 1] = [value];
+					return parseExpressionList(tokenList);
+				except SyntaxError:
+					pass;
+
 	# reduce functions to their values
 	for location, value in enumerate(tokenList):
 		if type(value) == Token and value.type == "function":
@@ -230,6 +293,29 @@ def parseExpressionList(tokenList):
 			value = parseFunction(tokenList[location + 1:], value.data);
 			# replace into tokenList
 			tokenList[location:] = [value];
+			return parseExpressionList(tokenList);
+	
+	# reduce objects to their properties
+	parenLevel = 0
+	for location, value in enumerate(tokenList):
+		if type(value) == Token and value.type == "leftbracket":
+			object = tokenList[location + 1];
+			property = tokenList[location + 2];
+			if type(tokenList[location + 3]) != Token or tokenList[location + 3].type != "rightbracket":
+				raise SyntaxError("Unmatched brackets, you are missing a ']' somewhere.");
+			if type(object) == Token:
+				if object.type == "name" and object.data in objects:
+					object = objects[object.data];
+				if object.type == "value":
+					object = object.data;
+
+			if type(property) == Token:
+				if property.type == "name":
+					property = property.data;
+			
+			value = object.getAttr(property);
+			# replace the value into tokenList
+			tokenList[location : location + 4] = [value];
 			return parseExpressionList(tokenList);
 			
 	# reduce infix operators to their values
@@ -249,7 +335,7 @@ def parseExpressionList(tokenList):
 		# replace the value into tokenList
 		tokenList[opPos - 1 : opPos + 2] = [value];
 		return parseExpressionList(tokenList);
-			
+	
 	raise SyntaxError("No idea what to do with these values: " + str(tokenList));
 
 def parseExpression(tokenSrc, canBeNull = False):

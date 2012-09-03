@@ -261,12 +261,12 @@ class Object (Value):
 		self.values = {};
 
 	def setAttr(self, attr, value):
-		attr.Convert(Text);
+		attr = fun_convert(attr, Text);
 		self.values[attr.value] = value;
 		return self;
 
 	def getAttr(self, attr):
-		attr.Convert(Text);
+		attr = fun_convert(attr, Text);
 		return self.values[attr.value];
 
 	def __str__(self):
@@ -300,14 +300,18 @@ class Unit (Value):
 			return Text(self.name);
 
 	def __str__(self):
-		return str(self.name);
+		return self.name.value;
 
 	def __repr__(self):
 		return "{Unit name: " + repr(self.name) + "}" 
 
 class Quantity (Value):
 	def __init__(self, value, unit):
-		self.value = value;
+		if type(value) == int:
+			self.value = Integer(value);
+		else:
+			self.value = value;
+		
 		if type(unit) == Unit:
 			self.unit = unit;
 		else:
@@ -337,3 +341,18 @@ class Quantity (Value):
 		return "{Quantity value: " + repr(self.value) + " unit: " + repr(self.unit) + "}" 
 
 from Functions import *
+
+units = {};
+_c_factor = Integer(100);
+_k_factor = Integer(1000);
+
+units["m"] = Unit("m");
+
+units["cm"] = Unit("cm", units["m"], lambda x: fun_div(x, _c_factor), lambda x: fun_mult(x, _c_factor));
+units["km"] = Unit("km", units["m"], lambda x: fun_mult(x, _k_factor), lambda x: fun_div(x, _k_factor));
+
+_au_factor = Decimal(14959787070, 1);
+units["au"] = Unit("au", units["m"], lambda x: fun_mult(x, _au_factor), lambda x: fun_div(x, _au_factor));
+
+objects = {};
+objects["earth"] = Object("earth").setAttr("distance", Quantity(1, units["au"]));

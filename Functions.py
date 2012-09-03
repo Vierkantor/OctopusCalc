@@ -7,121 +7,125 @@ def fun_convert(a, b):
 		return a.ToUnit(b);
 	if issubclass(type(a), Value) and issubclass(b, Value):
 		return a.Convert(b);
+	if type(a) == str and issubclass(b, Value):
+		return Text(a).Convert(b);
 	else:
-		raise ValueError("Cannot convert that way.");
+		raise ValueError("Cannot convert " + str(a) + " (type: " + str(type(a)) + ") to " + str(b));
 
 # since apparently Python doesn't feel the need to support overloading, we'll have to redefine most of the basic operations
 def fun_and (a, b):
-	a = a.Convert(Boolean);
-	b = b.Convert(Boolean);
+	a = fun_convert(a, Boolean);
+	b = fun_convert(b, Boolean);
 	return Boolean(a.value and b.value);
 
 def fun_or (a, b):
-	a = a.Convert(Boolean);
-	b = b.Convert(Boolean);
+	a = fun_convert(a, Boolean);
+	b = fun_convert(b, Boolean);
 	return Boolean(a.value or b.value);
 
 def fun_equals (a, b):
-	if type(a) == Decimal or type(b) == Decimal:
-		a = a.Convert(Decimal);
-		b = b.Convert(Decimal);
+	if type(a) == Object and type(b) == Object:
+		return Boolean(a.name == b.name);
+	elif type(a) == Decimal or type(b) == Decimal:
+		a = fun_convert(a, Decimal);
+		b = fun_convert(b, Decimal);
 		a.Truncate(b.sigFigs());
 		b.Truncate(a.sigFigs());
 		return fun_and(fun_equals(a.value, b.value), fun_equals(a.power, b.power));
 	elif type(a) == Fraction or type(b) == Fraction:
 		# a/b == c/d <=> ad == bc (so no simplification needed)
-		a = a.Convert(Fraction);
-		b = b.Convert(Fraction);
+		a = fun_convert(a, Fraction);
+		b = fun_convert(b, Fraction);
 		return fun_equals(fun_mult(a.top, b.bottom), fun_mult(a.bottom, b.top));
 	elif type(a) == Integer or type(b) == Integer:
-		a = a.Convert(Integer);
-		b = b.Convert(Integer);
+		a = fun_convert(a, Integer);
+		b = fun_convert(b, Integer);
 		return Boolean(a.value == b.value);
 	else:
-		a = a.Convert(Boolean);
-		b = b.Convert(Boolean);
+		a = fun_convert(a, Boolean);
+		b = fun_convert(b, Boolean);
 		return Boolean(a.value == b.value);
 
 def fun_greater (a, b):
 	if type(a) == Decimal or type(b) == Decimal:
-		a = a.Convert(Decimal);
-		b = b.Convert(Decimal);
+		a = fun_convert(a, Decimal);
+		b = fun_convert(b, Decimal);
 		a = a.Truncate(b.sigFigs());
 		b = b.Truncate(a.sigFigs());
 		return fun_or(fun_greater(a.power, b.power), fun_and(fun_equals(a.power, b.power), fun_greater(a.value, b.value)));
 	elif type(a) == Fraction or type(b) == Fraction:
 		# a/b > c/d <=> ad/bd > bc/bd <=> ad > bc
-		a = a.Convert(Fraction);
-		b = b.Convert(Fraction);
+		a = fun_convert(a, Fraction);
+		b = fun_convert(b, Fraction);
 		return fun_greater(fun_mult(a.top, b.bottom), fun_mult(b.top, a.bottom));
 	else:
-		a = a.Convert(Integer);
-		b = b.Convert(Integer);
+		a = fun_convert(a, Integer);
+		b = fun_convert(b, Integer);
 		return Boolean(a.value > b.value);
 
 def fun_add (a, b):
 	if type(a) == Decimal or type(b) == Decimal:
-		a = a.Convert(Decimal);
-		b = b.Convert(Decimal);
+		a = fun_convert(a, Decimal);
+		b = fun_convert(b, Decimal);
 		if (a.power.value < b.power.value):
 			a, b = b, a;
 		return Decimal((a.value.value * 10 ** (a.power.value - b.power.value) + b.value.value) // 10 ** (a.power.value - b.power.value), a.power);
 	elif type(a) == Fraction or type(b) == Fraction:
-		a = a.Convert(Fraction);
-		b = b.Convert(Fraction);
+		a = fun_convert(a, Fraction);
+		b = fun_convert(b, Fraction);
 		return Fraction(fun_add(fun_mult(a.top, b.bottom), fun_mult(a.bottom, b.top)), fun_mult(a.bottom, b.bottom)).Simplify();
 	else:
-		a = a.Convert(Integer);
-		b = b.Convert(Integer);
+		a = fun_convert(a, Integer);
+		b = fun_convert(b, Integer);
 		return Integer(a.value + b.value);
 
 def fun_sub (a, b):
 	if type(a) == Decimal or type(b) == Decimal:
-		a = a.Convert(Decimal);
-		b = b.Convert(Decimal);
+		a = fun_convert(a, Decimal);
+		b = fun_convert(b, Decimal);
 		if (a.power.value < b.power.value):
 			a, b = b, a;
 			return Decimal(int((-a.value.value * 10 ** (a.power.value - b.power.value)) + b.value.value) // 10 ** (a.power.value - b.power.value), a.power);
 		else:
 			return Decimal(int((a.value.value * 10 ** (a.power.value - b.power.value)) - b.value.value) // 10 ** (a.power.value - b.power.value), a.power);
 	elif type(a) == Fraction or type(b) == Fraction:
-		a = a.Convert(Fraction);
-		b = b.Convert(Fraction);
+		a = fun_convert(a, Fraction);
+		b = fun_convert(b, Fraction);
 		return Fraction(fun_sub(fun_mult(a.top, b.bottom), fun_mult(a.bottom, b.top)), fun_mult(a.bottom, b.bottom)).Simplify();
 	else:
-		a = a.Convert(Integer);
-		b = b.Convert(Integer);
+		a = fun_convert(a, Integer);
+		b = fun_convert(b, Integer);
 		return Integer(a.value - b.value);
 
 def fun_mult (a, b):
 	if type(a) == Decimal or type(b) == Decimal:
-		a = a.Convert(Decimal);
-		b = b.Convert(Decimal);
+		a = fun_convert(a, Decimal);
+		b = fun_convert(b, Decimal);
 		return Decimal(fun_mult(a.value, b.value), fun_add(a.power, b.power)).Truncate(min(a.sigFigs(), b.sigFigs()));
 	elif type(a) == Fraction or type(b) == Fraction:
-		a = a.Convert(Fraction);
-		b = b.Convert(Fraction);
+		a = fun_convert(a, Fraction);
+		b = fun_convert(b, Fraction);
 		return Fraction(fun_mult(a.top, b.top), fun_mult(a.bottom, b.bottom)).Simplify();
 	else:
-		a = a.Convert(Integer);
-		b = b.Convert(Integer);
+		a = fun_convert(a, Integer);
+		b = fun_convert(b, Integer);
 		return Integer(a.value * b.value);
 
 def fun_div (a, b):
 	if type(a) == Decimal or type(b) == Decimal:
-		a = a.Convert(Decimal);
-		b = b.Convert(Decimal);
+		a = fun_convert(a, Decimal);
+		b = fun_convert(b, Decimal);
 		truncB = b.Truncate(a.sigFigs() * 2); # the truncated value makes sure that b.value isn't so big that a.value / b.value becomes 0
 		c = fun_div(a.value, truncB.value).Convert(Decimal);	# preserves precision
 		c.power = fun_add(c.power, fun_sub(a.power, truncB.power));
 		return c.Truncate(min(a.sigFigs(), b.sigFigs()));
 	elif type(a) == Fraction or type(b) == Fraction:
-		a = a.Convert(Fraction);
-		b = b.Convert(Fraction);
+		a = fun_convert(a, Fraction);
+		b = fun_convert(b, Fraction);
 		return Fraction(fun_mult(a.top, b.bottom), fun_mult(b.top, a.bottom)).Simplify();
 	else:
-		a = a.Convert(Integer);
-		b = b.Convert(Integer);
+		a = fun_convert(a, Integer);
+		b = fun_convert(b, Integer);
 		return Fraction(a.value, b.value).Simplify();
 
 def fun_pow (a, b):
@@ -129,19 +133,19 @@ def fun_pow (a, b):
 	if type(a) == Fraction and type(b) == Integer:
 		return Fraction(fun_pow(a.top, b), fun_pow(a.bottom, b)).Simplify();
 	else:
-		a = a.Convert(Integer);
-		b = b.Convert(Integer);
+		a = fun_convert(a, Integer);
+		b = fun_convert(b, Integer);
 		return Integer(a.value ** b.value);
 
 def fun_mod (a, b):
-	a = a.Convert(Integer);
-	b = b.Convert(Integer);
+	a = fun_convert(a, Integer);
+	b = fun_convert(b, Integer);
 	return Integer(a.value % b.value);
 
 # not very basic but handy for fraction arithmetic
 def fun_gcd (a, b):
-	a = a.Convert(Integer);
-	b = b.Convert(Integer);
+	a = fun_convert(a, Integer);
+	b = fun_convert(b, Integer);
 	if fun_greater(b, a).value:
 		a, b = b, a
 	if fun_equals(b, Integer(0)).value:
